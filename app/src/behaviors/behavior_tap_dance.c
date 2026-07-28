@@ -47,6 +47,8 @@ struct active_tap_dance {
     bool timer_started;
     bool timer_cancelled;
     bool tap_dance_decided;
+    int64_t start_timestamp;
+    int64_t end_timestamp;
     int64_t release_at;
     struct k_work_delayable release_timer;
 };
@@ -79,6 +81,7 @@ static int new_tap_dance(struct zmk_behavior_binding_event *event,
             ref_dance->timer_started = true;
             ref_dance->timer_cancelled = false;
             ref_dance->tap_dance_decided = false;
+            ref_dance->start_timestamp = event->timestamp;
             *tap_dance = ref_dance;
             return 0;
         }
@@ -175,6 +178,7 @@ static int on_tap_dance_binding_released(struct zmk_behavior_binding *binding,
         return ZMK_BEHAVIOR_OPAQUE;
     }
     tap_dance->is_pressed = false;
+    tap_dance->end_timestamp = event.timestamp;
     if (tap_dance->tap_dance_decided) {
         release_tap_dance_behavior(tap_dance, event.timestamp);
     }
@@ -232,9 +236,9 @@ static int tap_dance_position_state_changed_listener(const zmk_event_t *eh) {
         stop_timer(tap_dance);
         LOG_DBG("Tap dance interrupted, activating tap-dance at %d", tap_dance->position);
         if (!tap_dance->tap_dance_decided) {
-            press_tap_dance_behavior(tap_dance, ev->timestamp);
+            press_tap_dance_behavior(tap_dance, tap_dance->start_timestamp);
             if (!tap_dance->is_pressed) {
-                release_tap_dance_behavior(tap_dance, ev->timestamp);
+                release_tap_dance_behavior(tap_dance, tap_dance->end_timestamp);
             }
             return ZMK_EV_EVENT_BUBBLE;
         }

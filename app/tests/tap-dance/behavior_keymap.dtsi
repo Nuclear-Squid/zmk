@@ -17,7 +17,7 @@
             compatible = "zmk,behavior-tap-dance";
             #binding-cells = <0>;
             tapping-term-ms = <200>;
-            bindings = <&ht LSHIFT A>, <&ht LALT B>, <&ht LGUI C>;
+            bindings = <&ht LSHIFT A>, <&mt LALT B>, <&ht LGUI C>;
         };
 
         tdb: tap_dance_basic {
