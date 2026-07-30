@@ -26,6 +26,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define ZMK_BHV_TAP_DANCE_POSITION_FREE UINT32_MAX
 
 struct behavior_tap_dance_config {
+    bool eager;
     uint32_t tapping_term_ms;
     size_t behavior_count;
     struct zmk_behavior_binding *behaviors;
@@ -47,6 +48,7 @@ struct active_tap_dance {
     bool timer_started;
     bool timer_cancelled;
     bool tap_dance_decided;
+    bool schedueled_clear;
     int64_t start_timestamp;
     int64_t end_timestamp;
     int64_t release_at;
@@ -81,6 +83,7 @@ static int new_tap_dance(struct zmk_behavior_binding_event *event,
             ref_dance->timer_started = true;
             ref_dance->timer_cancelled = false;
             ref_dance->tap_dance_decided = false;
+            ref_dance->schedueled_clear = false;
             ref_dance->start_timestamp = event->timestamp;
             *tap_dance = ref_dance;
             return 0;
@@ -135,7 +138,6 @@ static inline int release_tap_dance_behavior(struct active_tap_dance *tap_dance,
         .source = tap_dance->source,
 #endif
     };
-    clear_tap_dance(tap_dance);
     return zmk_behavior_invoke_binding(&binding, event, false);
 }
 
@@ -165,6 +167,9 @@ static int on_tap_dance_binding_pressed(struct zmk_behavior_binding *binding,
         press_tap_dance_behavior(tap_dance, event.timestamp);
         return ZMK_EV_EVENT_BUBBLE;
     }
+    if (cfg->eager) {
+        press_tap_dance_behavior(tap_dance, event.timestamp);
+    }
     reset_timer(tap_dance, event);
     return ZMK_BEHAVIOR_OPAQUE;
 }
@@ -179,8 +184,14 @@ static int on_tap_dance_binding_released(struct zmk_behavior_binding *binding,
     }
     tap_dance->is_pressed = false;
     tap_dance->end_timestamp = event.timestamp;
+    const bool end_of_sequence = !tap_dance->config->eager ||
+        (tap_dance->config->eager && tap_dance->schedueled_clear);
     if (tap_dance->tap_dance_decided) {
         release_tap_dance_behavior(tap_dance, event.timestamp);
+        if (!end_of_sequence) {
+            return ZMK_BEHAVIOR_OPAQUE;
+        }
+        clear_tap_dance(tap_dance);
     }
     return ZMK_BEHAVIOR_OPAQUE;
 }
@@ -196,11 +207,14 @@ void behavior_tap_dance_timer_handler(struct k_work *item) {
         return;
     }
     LOG_DBG("Tap dance has been decided via timer. Counter reached: %d", tap_dance->counter);
-    press_tap_dance_behavior(tap_dance, tap_dance->release_at);
+    if (!tap_dance->config->eager) {
+        press_tap_dance_behavior(tap_dance, tap_dance->release_at);
+    }
     if (tap_dance->is_pressed) {
         return;
     }
     release_tap_dance_behavior(tap_dance, tap_dance->release_at);
+    clear_tap_dance(tap_dance);
 }
 
 static const struct behavior_driver_api behavior_tap_dance_driver_api = {
@@ -234,11 +248,23 @@ static int tap_dance_position_state_changed_listener(const zmk_event_t *eh) {
             continue;
         }
         stop_timer(tap_dance);
+        if (tap_dance->config->eager) {
+            if (tap_dance->is_pressed) {
+                LOG_DBG("Eager tap dance will be cleared when released");
+                tap_dance->schedueled_clear = true;
+            }
+            else {
+                LOG_DBG("Eager tap dance cleared");
+                clear_tap_dance(tap_dance);
+            }
+            return ZMK_EV_EVENT_BUBBLE;
+        }
         LOG_DBG("Tap dance interrupted, activating tap-dance at %d", tap_dance->position);
         if (!tap_dance->tap_dance_decided) {
             press_tap_dance_behavior(tap_dance, tap_dance->start_timestamp);
             if (!tap_dance->is_pressed) {
                 release_tap_dance_behavior(tap_dance, tap_dance->end_timestamp);
+                clear_tap_dance(tap_dance);
             }
             return ZMK_EV_EVENT_BUBBLE;
         }
@@ -269,6 +295,7 @@ static int behavior_tap_dance_init(const struct device *dev) {
         behavior_tap_dance_config_##n##_bindings[DT_INST_PROP_LEN(n, bindings)] =                  \
             TRANSFORMED_BINDINGS(n);                                                               \
     static struct behavior_tap_dance_config behavior_tap_dance_config_##n = {                      \
+        .eager = DT_INST_PROP(n, eager),                                                           \
         .tapping_term_ms = DT_INST_PROP(n, tapping_term_ms),                                       \
         .behaviors = behavior_tap_dance_config_##n##_bindings,                                     \
         .behavior_count = DT_INST_PROP_LEN(n, bindings)};                                          \
