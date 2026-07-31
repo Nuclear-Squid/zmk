@@ -16,3 +16,5 @@ properties:
     default: 200
   eager:
     type: boolean
+  extended:
+    type: boolean

@@ -27,6 +27,7 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 struct behavior_tap_dance_config {
     bool eager;
+    bool extended;
     uint32_t tapping_term_ms;
     size_t behavior_count;
     struct zmk_behavior_binding *behaviors;
@@ -49,6 +50,8 @@ struct active_tap_dance {
     bool timer_cancelled;
     bool tap_dance_decided;
     bool schedueled_clear;
+    bool schedueled_extention;
+    bool active_extention;
     int64_t start_timestamp;
     int64_t end_timestamp;
     int64_t release_at;
@@ -84,6 +87,8 @@ static int new_tap_dance(struct zmk_behavior_binding_event *event,
             ref_dance->timer_cancelled = false;
             ref_dance->tap_dance_decided = false;
             ref_dance->schedueled_clear = false;
+            ref_dance->schedueled_extention = config->extended;
+            ref_dance->active_extention = false;
             ref_dance->start_timestamp = event->timestamp;
             *tap_dance = ref_dance;
             return 0;
@@ -155,6 +160,7 @@ static int on_tap_dance_binding_pressed(struct zmk_behavior_binding *binding,
         LOG_DBG("%d created new tap dance", event.position);
     }
     tap_dance->is_pressed = true;
+    tap_dance->active_extention = false;
     LOG_DBG("%d tap dance pressed", event.position);
     stop_timer(tap_dance);
     // Increment the counter on keypress. If the counter has reached its maximum
@@ -164,6 +170,7 @@ static int on_tap_dance_binding_pressed(struct zmk_behavior_binding *binding,
     }
     if (tap_dance->counter == cfg->behavior_count) {
         // LOG_DBG("Tap dance has been decided via maximum counter value");
+        tap_dance->schedueled_extention = false;
         press_tap_dance_behavior(tap_dance, event.timestamp);
         return ZMK_EV_EVENT_BUBBLE;
     }
@@ -191,6 +198,13 @@ static int on_tap_dance_binding_released(struct zmk_behavior_binding *binding,
         if (!end_of_sequence) {
             return ZMK_BEHAVIOR_OPAQUE;
         }
+        LOG_DBG("ending sequence");
+        if (tap_dance->schedueled_extention) {
+            tap_dance->schedueled_extention = false;
+            tap_dance->active_extention = true;
+            reset_timer(tap_dance, event);
+            return ZMK_BEHAVIOR_OPAQUE;
+        }
         clear_tap_dance(tap_dance);
     }
     return ZMK_BEHAVIOR_OPAQUE;
@@ -204,6 +218,10 @@ void behavior_tap_dance_timer_handler(struct k_work *item) {
         return;
     }
     if (tap_dance->timer_cancelled) {
+        return;
+    }
+    if (tap_dance->active_extention) {
+        clear_tap_dance(tap_dance);
         return;
     }
     LOG_DBG("Tap dance has been decided via timer. Counter reached: %d", tap_dance->counter);
@@ -296,6 +314,7 @@ static int behavior_tap_dance_init(const struct device *dev) {
             TRANSFORMED_BINDINGS(n);                                                               \
     static struct behavior_tap_dance_config behavior_tap_dance_config_##n = {                      \
         .eager = DT_INST_PROP(n, eager),                                                           \
+        .extended = DT_INST_PROP(n, extended),                                                     \
         .tapping_term_ms = DT_INST_PROP(n, tapping_term_ms),                                       \
         .behaviors = behavior_tap_dance_config_##n##_bindings,                                     \
         .behavior_count = DT_INST_PROP_LEN(n, bindings)};                                          \
