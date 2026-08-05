@@ -27,8 +27,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 struct behavior_tap_dance_config {
     bool eager;
-    bool extended;
     uint32_t tapping_term_ms;
+    uint32_t post_tapping_term_ms;
     size_t behavior_count;
     struct zmk_behavior_binding *behaviors;
 };
@@ -87,7 +87,7 @@ static int new_tap_dance(struct zmk_behavior_binding_event *event,
             ref_dance->timer_cancelled = false;
             ref_dance->tap_dance_decided = false;
             ref_dance->schedueled_clear = false;
-            ref_dance->schedueled_extention = config->extended;
+            ref_dance->schedueled_extention = config->post_tapping_term_ms > 0;
             ref_dance->active_extention = false;
             ref_dance->start_timestamp = event->timestamp;
             *tap_dance = ref_dance;
@@ -119,6 +119,17 @@ static void reset_timer(struct active_tap_dance *tap_dance,
         LOG_DBG("Successfully reset timer at position %d", tap_dance->position);
     }
 }
+
+static void extend_timer(struct active_tap_dance *tap_dance,
+                        struct zmk_behavior_binding_event event) {
+    tap_dance->release_at = event.timestamp + tap_dance->config->post_tapping_term_ms;
+    int32_t ms_left = tap_dance->release_at - k_uptime_get();
+    if (ms_left > 0) {
+        k_work_schedule(&tap_dance->release_timer, K_MSEC(ms_left));
+        LOG_DBG("Successfully extended timer at position %d", tap_dance->position);
+    }
+}
+
 
 static inline int press_tap_dance_behavior(struct active_tap_dance *tap_dance, int64_t timestamp) {
     tap_dance->tap_dance_decided = true;
@@ -202,7 +213,7 @@ static int on_tap_dance_binding_released(struct zmk_behavior_binding *binding,
         if (tap_dance->schedueled_extention) {
             tap_dance->schedueled_extention = false;
             tap_dance->active_extention = true;
-            reset_timer(tap_dance, event);
+            extend_timer(tap_dance, event);
             return ZMK_BEHAVIOR_OPAQUE;
         }
         clear_tap_dance(tap_dance);
@@ -318,8 +329,8 @@ static int behavior_tap_dance_init(const struct device *dev) {
             TRANSFORMED_BINDINGS(n);                                                               \
     static struct behavior_tap_dance_config behavior_tap_dance_config_##n = {                      \
         .eager = DT_INST_PROP(n, eager),                                                           \
-        .extended = DT_INST_PROP(n, extended),                                                     \
         .tapping_term_ms = DT_INST_PROP(n, tapping_term_ms),                                       \
+        .post_tapping_term_ms = DT_INST_PROP(n, post_tapping_term_ms),                             \
         .behaviors = behavior_tap_dance_config_##n##_bindings,                                     \
         .behavior_count = DT_INST_PROP_LEN(n, bindings)};                                          \
     BEHAVIOR_DT_INST_DEFINE(n, behavior_tap_dance_init, NULL, NULL,                                \

@@ -14,7 +14,8 @@ properties:
   tapping-term-ms:
     type: int
     default: 200
+  post-tapping-term-ms:
+    type: int
+    default: 0
   eager:
-    type: boolean
-  extended:
     type: boolean
