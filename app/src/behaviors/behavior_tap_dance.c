@@ -286,6 +286,10 @@ static int tap_dance_position_state_changed_listener(const zmk_event_t *eh) {
             }
             return ZMK_EV_EVENT_BUBBLE;
         }
+        if (tap_dance->active_extention) {
+            clear_tap_dance(tap_dance);
+            return ZMK_EV_EVENT_BUBBLE;
+        }
     }
     return ZMK_EV_EVENT_BUBBLE;
 }
