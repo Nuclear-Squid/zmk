@@ -237,12 +237,12 @@ void behavior_tap_dance_timer_handler(struct k_work *item) {
     }
     LOG_DBG("Tap dance has been decided via timer. Counter reached: %d", tap_dance->counter);
     if (!tap_dance->config->eager) {
-        press_tap_dance_behavior(tap_dance, tap_dance->release_at);
+        press_tap_dance_behavior(tap_dance, tap_dance->start_timestamp);
     }
     if (tap_dance->is_pressed) {
         return;
     }
-    release_tap_dance_behavior(tap_dance, tap_dance->release_at);
+    release_tap_dance_behavior(tap_dance, tap_dance->end_timestamp);
     clear_tap_dance(tap_dance);
 }
 
