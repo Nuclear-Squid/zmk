@@ -262,6 +262,10 @@ menu "Keymaps"
 config ZMK_KEYMAP_LAYER_REORDERING
     bool "Layer Reordering Support"
 
+config OVERRIDE_ZMK_KEYMAP_LEN
+    int "Override the size of a keymap"
+    default 0
+
 config ZMK_KEYMAP_SETTINGS_STORAGE
     bool "Settings Save/Load"
     depends on SETTINGS

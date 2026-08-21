@@ -11,7 +11,11 @@
 #define ZMK_MATRIX_NODE_ID DT_CHOSEN(zmk_kscan)
 #define ZMK_MATRIX_HAS_TRANSFORM DT_HAS_CHOSEN(zmk_matrix_transform)
 
-#if DT_HAS_COMPAT_STATUS_OKAY(zmk_physical_layout)
+#if CONFIG_OVERRIDE_ZMK_KEYMAP_LEN > 0
+
+#define ZMK_KEYMAP_LEN CONFIG_OVERRIDE_ZMK_KEYMAP_LEN
+
+#elif DT_HAS_COMPAT_STATUS_OKAY(zmk_physical_layout)
 
 #define ZMK_PHYSICAL_LAYOUT_BYTE_ARRAY(node_id)                                                    \
     uint8_t _CONCAT(prop_, node_id)[DT_PROP_LEN(DT_PHANDLE(node_id, transform), map)];

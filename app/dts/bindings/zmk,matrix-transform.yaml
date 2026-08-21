@@ -19,3 +19,6 @@ properties:
   map:
     type: array
     required: true
+  redirection-table:
+    type: array
+    required: false

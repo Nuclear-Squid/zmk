@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include "zephyr/devicetree.h"
 #include <zephyr/init.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/util.h>
@@ -15,11 +16,13 @@
 
 struct zmk_matrix_transform {
     uint32_t const *lookup_table;
+    uint32_t const *redirection_table;
     size_t len;
     uint8_t rows;
     uint8_t columns;
     uint8_t col_offset;
     uint8_t row_offset;
+    bool redirect_keys;
 };
 
 /* the transform in the device tree is a list of (row,column) pairs that is
@@ -48,6 +51,8 @@ struct zmk_matrix_transform {
 #define MATRIX_TRANSFORM_INIT(n)                                                                   \
     static const uint32_t _CONCAT(zmk_transform_lookup_table_, n)[] = {                            \
         LISTIFY(DT_INST_PROP_LEN(n, map), TRANSFORM_LOOKUP_ENTRY, (, ), n)};                       \
+    static const uint32_t _CONCAT(zmk_transform_redirection_table_, n)[] =                         \
+        DT_INST_PROP_OR(n, redirection_table, {});                                                 \
     const struct zmk_matrix_transform _CONCAT(zmk_matrix_transform_, DT_DRV_INST(n)) = {           \
         .rows = DT_INST_PROP(n, rows),                                                             \
         .columns = DT_INST_PROP(n, columns),                                                       \
@@ -55,6 +60,8 @@ struct zmk_matrix_transform {
         .row_offset = DT_INST_PROP(n, row_offset),                                                 \
         .lookup_table = _CONCAT(zmk_transform_lookup_table_, n),                                   \
         .len = ARRAY_SIZE(_CONCAT(zmk_transform_lookup_table_, n)),                                \
+        .redirection_table = _CONCAT(zmk_transform_redirection_table_, n),                            \
+        .redirect_keys = DT_INST_NODE_HAS_PROP(n, redirection_table),                              \
     };
 
 DT_INST_FOREACH_STATUS_OKAY(MATRIX_TRANSFORM_INIT);
@@ -92,5 +99,10 @@ int32_t zmk_matrix_transform_row_column_to_position(zmk_matrix_transform_t mt, u
         return -EINVAL;
     }
 
-    return val - INDEX_OFFSET;
+    val -= INDEX_OFFSET;
+    if (mt->redirect_keys) {
+        val = mt->redirection_table[val];
+    }
+
+    return val;
 };
