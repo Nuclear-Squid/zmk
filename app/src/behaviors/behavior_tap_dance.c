@@ -227,6 +227,7 @@ void behavior_tap_dance_timer_handler(struct k_work *item) {
         press_tap_dance_behavior(tap_dance, tap_dance->press_timestamp);
     }
     if (tap_dance->is_pressed) {
+        tap_dance->schedueled_clear = true;
         return;
     }
     release_tap_dance_behavior(tap_dance, tap_dance->release_timestamp);
