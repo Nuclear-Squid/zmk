@@ -242,12 +242,12 @@ static const struct behavior_driver_api behavior_tap_dance_driver_api = {
 #endif // IS_ENABLED(CONFIG_ZMK_BEHAVIOR_METADATA)
 };
 
-static int tap_dance_position_state_changed_listener(const zmk_event_t *eh);
+int tap_dance_position_state_changed_listener(const zmk_event_t *eh);
 
 ZMK_LISTENER(behavior_tap_dance, tap_dance_position_state_changed_listener);
 ZMK_SUBSCRIPTION(behavior_tap_dance, zmk_position_state_changed);
 
-static int tap_dance_position_state_changed_listener(const zmk_event_t *eh) {
+int tap_dance_position_state_changed_listener(const zmk_event_t *eh) {
     struct zmk_position_state_changed *ev = as_zmk_position_state_changed(eh);
     if (ev == NULL) {
         return ZMK_EV_EVENT_BUBBLE;
