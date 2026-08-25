@@ -28,10 +28,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #if DT_HAS_COMPAT_STATUS_OKAY(DT_DRV_COMPAT)
 
 // Events raised by this module should not interfere with tap-dances, so as to
-// not prematurely cancel a tap-dance nested in a combo. The following statement
-// allows us to refer to the event listener for the module behavior_tap_dance.
-// extern const struct zmk_listener zmk_listener_behavior_tap_dance;
-extern const struct zmk_listener zmk_listener_behavior_hold_tap;
+// not prematurely cancel a tap-dance nested in a combo
+ZMK_SUBSCRIPTION(behavior_tap_dance, zmk_position_state_changed);
 
 #if CONFIG_ZMK_COMBO_MAX_KEYS_PER_COMBO > 0
 
@@ -277,8 +275,7 @@ static int release_pressed_keys() {
         } else {
             // reprocess events (see tests/combo/fully-overlapping-combos-3 for why this is needed)
             LOG_DBG("combo: reraising position event %d", ev->data.position);
-            // ZMK_EVENT_RAISE_AFTER(*ev, behavior_tap_dance);
-            ZMK_EVENT_RAISE_AT(*ev, behavior_hold_tap);
+            ZMK_EVENT_RAISE_AFTER(*ev, behavior_tap_dance);
         }
     }
 
@@ -473,8 +470,7 @@ static int position_state_up(const zmk_event_t *ev, struct zmk_position_state_ch
         // correct order for e.g. hold-taps, reraise the key up event too.
         struct zmk_position_state_changed_event dupe_ev =
             copy_raised_zmk_position_state_changed(data);
-        // ZMK_EVENT_RAISE_AFTER(dupe_ev, behavior_tap_dance);
-        ZMK_EVENT_RAISE_AT(dupe_ev, behavior_hold_tap);
+        ZMK_EVENT_RAISE_AFTER(dupe_ev, behavior_tap_dance);
         return ZMK_EV_EVENT_CAPTURED;
     }
     return ZMK_EV_EVENT_BUBBLE;
