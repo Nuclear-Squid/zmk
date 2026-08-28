@@ -134,7 +134,7 @@ static bool caps_word_should_enhance(const struct behavior_caps_word_config *con
 static bool caps_word_should_continue(const struct behavior_caps_word_config *config,
                                       struct zmk_keycode_state_changed *ev) {
     // Modifiers do not break a word, nor does any key that is enhanced.
-    if (is_mod(ev->usage_page, ev->keycode) || caps_word_should_enhance(config, ev)) {
+    if (is_mod(ev->usage_page, ev->keycode)) {
         return true;
     }
 
@@ -163,21 +163,22 @@ static int caps_word_keycode_state_changed_listener(const zmk_event_t *eh) {
 
         const struct behavior_caps_word_config *config = dev->config;
 
+        if (caps_word_should_continue(config, ev)) {
+            continue;
+         }
+
         if (caps_word_should_enhance(config, ev)) {
             LOG_DBG("Enhancing usage 0x%02X with modifiers: 0x%02X", ev->keycode, config->mods);
             ev->implicit_modifiers |= config->mods;
+            continue;
         }
 
-        if (!caps_word_should_continue(config, ev)) {
-            LOG_DBG("Deactivating caps_word for 0x%02X - 0x%02X", ev->usage_page, ev->keycode);
-            deactivate_caps_word(dev);
-        }
+        LOG_DBG("Deactivating caps_word for 0x%02X - 0x%02X", ev->usage_page, ev->keycode);
+        deactivate_caps_word(dev);
     }
 
     return ZMK_EV_EVENT_BUBBLE;
 }
-
-static int behavior_caps_word_init(const struct device *dev) { return 0; }
 
 #define KEY_LIST_ITEM(i, n, prop) ZMK_KEY_PARAM_DECODE(DT_INST_PROP_BY_IDX(n, prop, i))
 
