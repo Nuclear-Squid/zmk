@@ -815,6 +815,10 @@ int zmk_keymap_sensor_event(uint8_t sensor_index,
 #endif /* ZMK_KEYMAP_HAS_SENSORS */
 
 int keymap_listener(const zmk_event_t *eh) {
+    if (eh->recursion_level > 0) {
+        return -ENOTSUP;
+    }
+
     const struct zmk_position_state_changed *pos_ev;
     if ((pos_ev = as_zmk_position_state_changed(eh)) != NULL) {
         return zmk_keymap_position_state_changed(pos_ev->source, pos_ev->position, pos_ev->state,

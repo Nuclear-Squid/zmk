@@ -17,6 +17,7 @@ struct zmk_event_type {
 typedef struct {
     const struct zmk_event_type *event;
     uint8_t last_listener_index;
+    uint8_t recursion_level;
 } zmk_event_t;
 
 #define ZMK_EV_EVENT_BUBBLE 0

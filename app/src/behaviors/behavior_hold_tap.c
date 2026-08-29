@@ -89,6 +89,7 @@ struct active_hold_tap {
 
     // initialized to -1, which is to be interpreted as "no other key has been pressed yet"
     int32_t position_of_first_other_key_pressed;
+    uint8_t recursion_level;
 };
 
 // The undecided hold tap is the hold tap that needs to be decided before
@@ -269,6 +270,7 @@ static struct active_hold_tap *store_hold_tap(struct zmk_behavior_binding_event 
         active_hold_taps[i].param_tap = param_tap;
         active_hold_taps[i].timestamp = event->timestamp;
         active_hold_taps[i].position_of_first_other_key_pressed = -1;
+        active_hold_taps[i].recursion_level = event->recursion_level;
         return &active_hold_taps[i];
     }
     return NULL;
@@ -733,6 +735,11 @@ static int position_state_changed_listener(const zmk_event_t *eh) {
         LOG_DBG("%d bubble (no undecided hold_tap active)", ev->position);
         return ZMK_EV_EVENT_BUBBLE;
     }
+
+    if (eh->recursion_level != undecided_hold_tap->recursion_level) {
+        return ZMK_EV_EVENT_BUBBLE;
+    }
+    undecided_hold_tap->recursion_level = 0;
 
     // Store the position of pressed key for positional hold-tap purposes.
     if ((undecided_hold_tap->config->hold_trigger_on_release !=
